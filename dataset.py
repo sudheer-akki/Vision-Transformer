@@ -15,7 +15,6 @@ class Custom_dataset(Dataset):
         self.class_names = class_names
         self.sub_folders = [os.path.join(os.getcwd(),f.path) for f in os.scandir(self.folder) if f.is_dir()]
         self.total_images = []
-
         for dirname in list(self.sub_folders):
             images = [os.path.join(dirname,f) for f in os.listdir(dirname) if f.endswith(".png") or f.endswith(".jpeg")]
             self.total_images.extend(images)

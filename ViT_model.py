@@ -2,9 +2,32 @@ import torch.nn as nn
 from torch.nn import MultiheadAttention
 import torch
 import numpy as np
+import matplotlib.pyplot as plt
 
 
-def Make_patches(image, patch_size):
+def visualize_patches(patches):
+    # Squeeze the batch dimension
+    tensor = patches.squeeze(0)  # Shape now becomes (3, 10, 10, 40, 40)
+
+    # Create a 10x10 grid of subplots
+    fig, axes = plt.subplots(10, 10, figsize=(20, 20))
+
+    # Loop through each of the 10x10 grid and plot the images
+    for i in range(10):
+        for j in range(10):
+            # Extract the 40x40 image for RGB channels
+            image = tensor[:, i, j, :, :].permute(1, 2, 0)  # Shape becomes (40, 40, 3)
+
+            # Plot the image in the corresponding subplot
+            axes[i, j].imshow(image.detach().cpu().numpy())
+            axes[i, j].axis('off')  # Turn off the axis for cleaner visualization
+
+    # Adjust layout so the images don't overlap
+    plt.tight_layout()
+    plt.show()
+
+
+def Make_patches(image, patch_size, visualize_patch = False):
     #image shape (1,3,400,400)
     P, C = patch_size, image.shape[1] 
     num_patches = image.shape[2] * image.shape[3] // patch_size**2 # N = HW/P**2 = 100
@@ -15,6 +38,9 @@ def Make_patches(image, patch_size):
     patches = image.unfold(2,P,P).unfold(3,P,P) #(1,3,10,10,40,40)
     # The shape of patches is (1, C, num_patches_x, num_patches_y, patch_size, patch_size) 
 
+    if visualize_patch:
+        visualize_patches(patches)
+        
     """reshaped = patches.reshape(1,1,num_patches,last_dimension_shape) # reshape computationally expensive use view"""
 
     """Note: View must expect Tensor to be Contiguous (one single memory block instead of Scattered underlying Memory)"""
@@ -23,7 +49,6 @@ def Make_patches(image, patch_size):
     # target shape (1,100,4800)
 
     # target shape N× (P2·C) = (number of patches, Patch_size**2xColour channel) = (100,40x40X3) = (100,4800) 
-
     return reshaped
 
 
@@ -242,13 +267,13 @@ class ViT_Model(nn.Module):
         
         """Step4: Adding intialized Class token to Patch embeddings"""
         patch_embedding_with_class_token = torch.cat((self.class_token,linear_projected), dim=1) # (1,1,768) + (1,100,768) = (1,101,768)
-        #print(f"Patch embedding shape with class: {patch_embedding_with_class_token.shape}")
+        print(f"Patch embedding shape with class: {patch_embedding_with_class_token.shape}")
 
       
         """Step6: linear_patches_with_class_token (step4) + Adding Sinusoidal encodings or Intialized Patch positional Embeddings (step5)"""
         #5. Add class token to positional embeddings
         positional_embedding_with_class = patch_embedding_with_class_token + self.sinusoidal_embedding #self.positional_embedding # (1,101,768) + (1,101,768)
-        #print(f"class token to positional embedding shape:{positional_embedding_with_class.shape}")
+        print(f"class token to positional embedding shape:{positional_embedding_with_class.shape}")
 
         """ Step8: Passing Patch + Positional Embedding -> Transformer Encoder """
         transformer_output = self.transformer_encoder_layers(positional_embedding_with_class)
